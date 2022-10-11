@@ -86,9 +86,7 @@ openssl ca -md sha256 -days 730 -notext -config /tmp/openssl_domain.cnf \
 echo
 sleep 1
 
-cat domainCerts/certs/domain.crt > domainCerts/certs/fullchain.crt
-echo >> domainCerts/certs/fullchain.crt
-cat intermediate/certs/middle.crt >> domainCerts/certs/fullchain.crt
+cat domainCerts/certs/domain.crt intermediate/certs/middle.crt > domainCerts/certs/fullchain.crt
 
 rm -f /tmp/openssl_domain.cnf
 rm -f domainCerts/certs/domain.csr
