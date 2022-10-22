@@ -61,7 +61,7 @@ sleep 1
 
 openssl req -new -sha256 -config /tmp/openssl_IntermediateCA.cnf \
 -key intermediate/private/middle.key -out intermediate/certs/middle.csr \
--subj "/C=US/CN=Intermediate CA"
+-subj "/C=US/CN=SHA2 Extended Validation Server CA"
 
 echo
 sleep 1
