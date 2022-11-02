@@ -66,7 +66,8 @@ openssl req -new -sha256 -config /tmp/openssl_IntermediateCA.cnf \
 echo
 sleep 1
 
-openssl ca -md sha256 -days 3650 -notext -config /tmp/openssl_IntermediateCA.cnf \
+# 20 years, 7300 = 20*365
+openssl ca -md sha256 -days 7300 -notext -config /tmp/openssl_IntermediateCA.cnf \
 -extensions v3_ca -policy policy_anything \
 -in intermediate/certs/middle.csr -out intermediate/certs/middle.crt \
 -cert root/certs/RootCA.crt -keyfile root/private/RootCA.key
