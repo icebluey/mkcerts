@@ -14,7 +14,6 @@ openssl genrsa -out serverCerts/private/server.key 4096
 #openssl ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
 
 rm -f /tmp/openssl_server.cnf
-echo
 sleep 1
 
 cat << EOF > /tmp/openssl_server.cnf
@@ -73,14 +72,14 @@ EOF
 echo
 sleep 1
 
-openssl req -new -sha256 -config /tmp/openssl_server.cnf \
+openssl req -new -sha384 -config /tmp/openssl_server.cnf \
 -key serverCerts/private/server.key -out serverCerts/certs/server.csr \
 -subj "/CN=www.test.local"
 
 echo
 sleep 1
 
-openssl ca -md sha256 -days 730 -notext -config /tmp/openssl_server.cnf \
+openssl ca -md sha384 -days 730 -notext -config /tmp/openssl_server.cnf \
 -extensions server_cert -policy policy_anything \
 -in serverCerts/certs/server.csr -out serverCerts/certs/server.crt \
 -cert intermediate/certs/intermediateCA.crt -keyfile intermediate/private/intermediateCA.key
