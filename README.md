@@ -1,16 +1,22 @@
-# Check certificates
+### Check certificates
 ```
 openssl x509 -text -noout -in rootCA.crt
 openssl x509 -text -noout -in intermediateCA.crt
 openssl x509 -text -noout -in server.crt
 ```
+### Read private key
+```
+openssl pkey -text -noout -in rootCA.key
+openssl asn1parse -i -in rootCA.key
+```
 
-# RHEL/CentOS
+
+### RHEL/CentOS
 ```
 cat rootCA.crt >> /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
 ```
 
-# Debian/Ubuntu
+### Debian/Ubuntu
 ```
 cat rootCA.crt >> /etc/ssl/certs/ca-certificates.crt
 ```
