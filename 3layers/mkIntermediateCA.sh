@@ -12,6 +12,8 @@ echo 0001 > intermediate/ca/serial
 
 openssl genrsa -out intermediate/private/intermediateCA.key 4096
 
+#openssl ecparam -genkey -noout -name P-384 -out intermediate/private/intermediateCA.key
+
 rm -f /tmp/openssl_intermediateCA.cnf
 sleep 1
 
