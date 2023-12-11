@@ -11,6 +11,7 @@ touch serverCerts/ca/index.txt
 echo 0001 > serverCerts/ca/serial
 
 openssl genrsa -out serverCerts/private/server.key 4096
+
 #openssl ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
 
 rm -f /tmp/openssl_server.cnf
