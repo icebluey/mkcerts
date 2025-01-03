@@ -29,6 +29,13 @@ Debian/Ubuntu
 cp your-root-ca.crt /usr/local/share/ca-certificates/
 update-ca-certificates
 ```
+
+Diffie-Hellman parameters
+```
+openssl dhparam -out dhparam.pem 3072
+openssl dhparam -dsaparam -out dhparam.pem 4096
+```
+
 ### 生成完整的证书链 Fullchain
 生成完整的证书链（通常称为 "fullchain"）涉及将最终实体证书（例如服务器证书）与中间 CA 证书（以及有时包括根 CA 证书）连接在一起。这在配置 TLS/SSL 服务时尤其重要，因为它允许客户端验证服务器证书的完整签名路径。
 
