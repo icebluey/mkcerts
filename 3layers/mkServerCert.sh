@@ -60,8 +60,8 @@ extendedKeyUsage = serverAuth,clientAuth
 subjectAltName=@alt_names
 
 [alt_names]
-DNS.1 = *.test.local
-DNS.2 = test.local
+DNS.1 = *.test.internal
+DNS.2 = test.internal
 EOF
 
 #DNS.1 = k8s-master1
@@ -75,7 +75,7 @@ sleep 1
 
 openssl req -new -sha256 -config /tmp/openssl_server.cnf \
 -key serverCerts/private/server.key -out serverCerts/certs/server.csr \
--subj "/CN=www.test.local"
+-subj "/CN=www.test.internal"
 
 echo
 sleep 1
