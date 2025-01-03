@@ -11,14 +11,23 @@ openssl asn1parse -i -in rootCA.key
 ```
 
 
-### RHEL/CentOS
+
+### 添加和信任自己的自定义证书
+确保证书是 PEM 格式，文件扩展名通常为 .crt 或 .pem。如果证书是其他格式（如 .der），需要先转换：
 ```
-cat rootCA.crt >> /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+openssl x509 -inform DER -in your-cert.der -out your-cert.crt
 ```
 
-### Debian/Ubuntu
+RHEL/CentOS
 ```
-cat rootCA.crt >> /etc/ssl/certs/ca-certificates.crt
+cp your-root-ca.crt /etc/pki/ca-trust/source/anchors/
+update-ca-trust
+```
+
+Debian/Ubuntu
+```
+cp your-root-ca.crt /usr/local/share/ca-certificates/
+update-ca-certificates
 ```
 ### 生成完整的证书链 Fullchain
 生成完整的证书链（通常称为 "fullchain"）涉及将最终实体证书（例如服务器证书）与中间 CA 证书（以及有时包括根 CA 证书）连接在一起。这在配置 TLS/SSL 服务时尤其重要，因为它允许客户端验证服务器证书的完整签名路径。
