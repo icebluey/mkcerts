@@ -22,6 +22,15 @@ RHEL/CentOS
 ```
 cp your-root-ca.crt /etc/pki/ca-trust/source/anchors/
 update-ca-trust
+
+
+ls -la /etc/pki/tls/cert.pem
+/etc/pki/tls/cert.pem -> /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+
+update-ca-trust 后，your-root-ca.crt 会被添加到 cert.pem 中的的最前端，以 CN 作为备注。
+例如 -subj "/C=US/OU=Root CA OU/CN=Root CA CN" , 则
+# Root CA CN
+-----BEGIN CERTIFICATE-----
 ```
 
 Debian/Ubuntu
