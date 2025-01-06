@@ -69,11 +69,35 @@ openssl dhparam -dsaparam -out dhparam.pem 4096
 3. **使用 Fullchain**：
    - 将生成的 `fullchain.crt` 文件用于你的服务器配置，例如在 Apache、Nginx 或其他支持 TLS/SSL 的服务中。
 
-### 注意事项
+4. 注意事项
 
 - **证书顺序**：在 `fullchain.crt` 文件中，证书的顺序很重要。通常，服务器证书放在最前面，其次是中间 CA，然后是根 CA（如果包括的话）。
 - **根 CA 包含**：在大多数情况下，不需要在 `fullchain.crt` 文件中包含根 CA 证书，因为客户端（如浏览器）通常已经内置了对它的信任。
 - **安全性**：`fullchain.crt` 文件不应包含任何私钥信息。它只应包含公开的证书数据。
 
 通过将这些证书正确地串联起来，你就可以确保客户端可以验证服务器证书的完整签名路径，从而建立安全连接。
+
+### PKCS #12
+```
+生成 PFX 文件
+要设置密码，不然 keytool 转化 .pfx 会报错
+openssl pkcs12 -export -out complete.pfx -inkey server.key -in fullchain.crt
+openssl pkcs12 -export -out complete.pfx -inkey server.key -in fullchain.crt -certfile more.cert
+
+验证 PFX 文件
+openssl pkcs12 -info -in complete.pfx -nodes
+
+仅显示私钥
+openssl pkcs12 -in complete.pfx -nocerts -nodes
+
+提取完整证书链
+openssl pkcs12 -in complete.pfx -nokeys
+
+仅显示服务器证书
+openssl pkcs12 -in complete.pfx -nokeys -clcerts
+
+keytool -importkeystore -srckeystore complete.pfx -srcstoretype PKCS12 -destkeystore keystore.jks -deststoretype JKS
+keytool -importkeystore -srckeystore complete.pfx -srcstoretype PKCS12 -destkeystore keystore.jks -deststoretype PKCS12
+
+```
 
