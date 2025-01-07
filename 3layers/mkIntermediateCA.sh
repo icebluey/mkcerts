@@ -10,7 +10,9 @@ mkdir -p intermediate/ca/newcerts
 touch intermediate/ca/index.txt
 echo 0001 > intermediate/ca/serial
 
-openssl genrsa -out intermediate/private/intermediateCA.key 4096
+openssl genrsa -out intermediate/private/intermediateCA.key 2048
+
+#openssl genrsa -out intermediate/private/intermediateCA.key 4096
 
 #openssl ecparam -genkey -noout -name P-384 -out intermediate/private/intermediateCA.key
 
@@ -60,15 +62,15 @@ EOF
 echo
 sleep 1
 
-openssl req -new -sha384 -config /tmp/openssl_intermediateCA.cnf \
+openssl req -new -sha256 -config /tmp/openssl_intermediateCA.cnf \
 -key intermediate/private/intermediateCA.key -out intermediate/certs/intermediateCA.csr \
 -subj "/C=US/CN=SHA2 Extended Validation Server CA"
 
 echo
 sleep 1
 
-# 20 years, 7300 = 20*365
-openssl ca -md sha384 -days 7300 -notext -config /tmp/openssl_intermediateCA.cnf \
+# 25 years, 9125 = 25*365
+openssl ca -md sha256 -days 9125 -notext -config /tmp/openssl_intermediateCA.cnf \
 -extensions v3_ca -policy policy_anything \
 -in intermediate/certs/intermediateCA.csr -out intermediate/certs/intermediateCA.crt \
 -cert root/certs/rootCA.crt -keyfile root/private/rootCA.key
