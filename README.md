@@ -9,7 +9,29 @@ openssl x509 -text -noout -in server.crt
 openssl pkey -text -noout -in rootCA.key
 openssl asn1parse -i -in rootCA.key
 ```
+### 验证
+```
+openssl verify -verbose -CAfile root/certs/rootCA.crt intermediate/certs/intermediateCA.crt
+openssl verify -verbose -CAfile <(cat intermediate/certs/intermediateCA.crt root/certs/rootCA.crt) serverCerts/certs/server.crt
+openssl verify -verbose -CAfile root/certs/rootCA.crt -untrusted intermediate/certs/intermediateCA.crt serverCerts/certs/server.crt
 
+Check a key:
+Check the SSL key and verify the consistency
+
+openssl rsa -in server.key -check
+
+Check a CSR:
+Verify the CSR and print CSR data filled in when generating the CSR
+openssl req -text -noout -verify -in server.csr
+
+Verify a certificate and key matches
+
+These two commands print out md5 checksums of the certificate and key; the checksums can be compared to verify that the certificate and key match.
+
+openssl x509 -noout -modulus -in server.crt | openssl md5
+openssl rsa -noout -modulus -in server.key | openssl md5
+
+```
 
 
 ### 添加和信任自己的自定义证书
