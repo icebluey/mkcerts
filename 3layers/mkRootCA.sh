@@ -45,10 +45,10 @@ EOF
 echo
 sleep 1
 
-_digest_algo='-sha384'
-#_digest_algo='-sha256'
+_digest_algo='sha384'
+#_digest_algo='sha256'
 
-openssl req -new ${_digest_algo} -config /tmp/openssl_rootCA.cnf \
+openssl req -new -${_digest_algo} -config /tmp/openssl_rootCA.cnf \
 -key root/private/rootCA.key -out root/certs/rootCA.csr \
 -subj "/C=US/OU=Root CA/CN=Root CA"
 
@@ -56,7 +56,7 @@ echo
 sleep 1
 
 # 30 years, 10950 = 30*365
-openssl x509 -req ${_digest_algo} -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
+openssl x509 -req -${_digest_algo} -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
 -signkey root/private/rootCA.key -in root/certs/rootCA.csr -out root/certs/rootCA.crt
 
 echo
