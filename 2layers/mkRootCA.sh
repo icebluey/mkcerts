@@ -7,9 +7,11 @@ set -e
 
 mkdir -p root/private root/certs
 
-openssl genrsa -aes256 -out root/private/ca.key 4096
+openssl genrsa -out root/private/ca.key 4096
 
 #openssl genrsa -out root/private/ca.key 2048
+
+#openssl genrsa -aes256 -out root/private/ca.key 4096
 
 #openssl ecparam -genkey -noout -name P-384 -out root/private/ca.key
 
