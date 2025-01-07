@@ -1,5 +1,9 @@
 ### Check certificates
 ```
+openssl x509 -noout -text -in root/certs/rootCA.crt
+openssl x509 -noout -text -in intermediate/certs/intermediateCA.crt
+openssl x509 -noout -text -in serverCerts/certs/server.crt
+
 openssl x509 -text -noout -in rootCA.crt
 openssl x509 -text -noout -in intermediateCA.crt
 openssl x509 -text -noout -in server.crt
