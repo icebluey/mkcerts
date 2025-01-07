@@ -32,12 +32,12 @@ distinguished_name = dn
 [v3_req]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE
-subjectKeyIdentifier=hash
-[ v3_ca ]
+subjectKeyIdentifier = hash
+[v3_ca]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
 EOF
 echo
 sleep 1
