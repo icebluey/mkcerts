@@ -19,9 +19,9 @@ sleep 1
 
 cat << EOF > /tmp/openssl_intermediateCA.cnf
 # intermediate CA
-[ ca ]
-default_ca  = CA_default
-[ CA_default ]
+[ca]
+default_ca = CA_default
+[CA_default]
 dir = ./intermediate/ca
 certs = \$dir/certs
 crl_dir = \$dir/crl
@@ -31,8 +31,8 @@ new_certs_dir = \$dir/newcerts
 serial = \$dir/serial
 crlnumber = \$dir/crlnumber
 crl = \$dir/crl.pem
-default_md  = default
-[ policy_anything ]
+default_md = default
+[policy_anything]
 countryName = optional
 stateOrProvinceName = optional
 localityName = optional
@@ -50,12 +50,12 @@ distinguished_name = dn
 [v3_req]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE,pathlen:0
-subjectKeyIdentifier=hash
-[ v3_ca ]
+subjectKeyIdentifier = hash
+[v3_ca]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE,pathlen:0
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid
 EOF
 echo
 sleep 1
