@@ -6,7 +6,7 @@ umask 022
 set -e
 
 mkdir -p root/private root/certs
-openssl genrsa -out root/private/ca.key 4096
+openssl genrsa -out root/private/ca.key 2048
 #openssl genrsa -aes256 -out root/private/ca.key 4096
 #openssl ecparam -genkey -noout -name P-384 -out root/private/ca.key
 
@@ -23,12 +23,12 @@ distinguished_name = dn
 [v3_req]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE
-subjectKeyIdentifier=hash
-[ v3_ca ]
+subjectKeyIdentifier = hash
+[v3_ca]
 keyUsage = critical,digitalSignature,keyCertSign,cRLSign
 basicConstraints = critical,CA:TRUE
-subjectKeyIdentifier=hash
-authorityKeyIdentifier=keyid
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always
 EOF
 echo
 sleep 1
@@ -40,8 +40,8 @@ openssl req -new -sha256 -config /tmp/openssl_rootCA.cnf \
 echo
 sleep 1
 
-# 25 years, 9125 = 25*365
-openssl x509 -req -sha256 -days 9125 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
+# 30 years, 10950 = 30*365
+openssl x509 -req -sha256 -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
 -signkey root/private/ca.key -in root/certs/ca.csr -out root/certs/ca.crt
 
 echo
