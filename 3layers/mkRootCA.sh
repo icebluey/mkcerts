@@ -7,8 +7,11 @@ set -e
 
 mkdir -p root/private root/certs
 
+# RSA2048 Root Key
+openssl genrsa -out root/private/rootCA.key 2048
+
 # RSA4096 Root Key
-openssl genrsa -out root/private/rootCA.key 4096
+#openssl genrsa -out root/private/rootCA.key 4096
 
 # ECC P384 Root Key
 #openssl ecparam -genkey -noout -name P-384 -out root/private/rootCA.key
@@ -42,15 +45,15 @@ EOF
 echo
 sleep 1
 
-openssl req -new -sha384 -config /tmp/openssl_rootCA.cnf \
+openssl req -new -sha256 -config /tmp/openssl_rootCA.cnf \
 -key root/private/rootCA.key -out root/certs/rootCA.csr \
 -subj "/C=US/OU=Root CA/CN=Root CA"
 
 echo
 sleep 1
 
-# 25 years, 9125 = 25*365
-openssl x509 -req -sha384 -days 9125 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
+# 30 years, 10950 = 30*365
+openssl x509 -req -sha256 -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
 -signkey root/private/rootCA.key -in root/certs/rootCA.csr -out root/certs/rootCA.crt
 
 echo
