@@ -19,9 +19,9 @@ sleep 1
 
 cat << EOF > /tmp/openssl_server.cnf
 # cert
-[ ca ]
-default_ca  = CA_default
-[ CA_default ]
+[ca]
+default_ca = CA_default
+[CA_default]
 dir = ./serverCerts/ca
 certs = \$dir/certs
 crl_dir = \$dir/crl
@@ -31,8 +31,8 @@ new_certs_dir = \$dir/newcerts
 serial = \$dir/serial
 crlnumber = \$dir/crlnumber
 crl = \$dir/crl.pem
-default_md  = default
-[ policy_anything ]
+default_md = default
+[policy_anything]
 countryName = optional
 stateOrProvinceName = optional
 localityName = optional
@@ -51,13 +51,13 @@ subjectKeyIdentifier = hash
 keyUsage = critical,digitalSignature,keyEncipherment
 extendedKeyUsage = serverAuth,clientAuth
 
-[ server_cert ]
+[server_cert]
 basicConstraints = CA:FALSE
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid
 keyUsage = critical,digitalSignature,keyEncipherment
 extendedKeyUsage = serverAuth,clientAuth
-subjectAltName=@alt_names
+subjectAltName = @alt_names
 
 [alt_names]
 DNS.1 = *.test.internal
