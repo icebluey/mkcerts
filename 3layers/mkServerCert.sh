@@ -10,7 +10,9 @@ mkdir serverCerts/private serverCerts/certs
 touch serverCerts/ca/index.txt
 echo 0001 > serverCerts/ca/serial
 
-openssl genrsa -out serverCerts/private/server.key 4096
+openssl genrsa -out serverCerts/private/server.key 2048
+
+#openssl genrsa -out serverCerts/private/server.key 4096
 
 #openssl ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
 
@@ -80,6 +82,7 @@ openssl req -new -sha256 -config /tmp/openssl_server.cnf \
 echo
 sleep 1
 
+# 2 years, 730 = 2*365
 openssl ca -md sha256 -days 730 -notext -config /tmp/openssl_server.cnf \
 -extensions server_cert -policy policy_anything \
 -in serverCerts/certs/server.csr -out serverCerts/certs/server.crt \
