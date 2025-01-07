@@ -75,7 +75,10 @@ EOF
 echo
 sleep 1
 
-openssl req -new -sha256 -config /tmp/openssl_server.cnf \
+#_digest_algo='sha384'
+_digest_algo='sha256'
+
+openssl req -new -${_digest_algo} -config /tmp/openssl_server.cnf \
 -key "${_output}"/private/"${_output}".key -out "${_output}"/certs/"${_output}".csr \
 -subj "/CN=www.test.internal"
 
@@ -83,7 +86,7 @@ echo
 sleep 1
 
 # 2 years, 730 = 2*365
-openssl ca -md sha256 -days 730 -notext -config /tmp/openssl_server.cnf \
+openssl ca -md ${_digest_algo} -days 730 -notext -config /tmp/openssl_server.cnf \
 -extensions server_cert -policy policy_anything \
 -in "${_output}"/certs/"${_output}".csr -out "${_output}"/certs/"${_output}".crt \
 -cert root/certs/ca.crt -keyfile root/private/ca.key
