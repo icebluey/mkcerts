@@ -4,7 +4,6 @@ TZ='UTC'; export TZ
 
 [ -f openssl ] && _OPENSSL_BIN='./openssl'
 
-${_OPENSSL_BIN:-openssl}
 umask 022
 set -e
 
