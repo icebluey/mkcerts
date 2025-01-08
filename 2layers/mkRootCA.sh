@@ -2,18 +2,20 @@
 export PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 TZ='UTC'; export TZ
 
+[ -f openssl ] && _OPENSSL_BIN='./openssl'
+
 umask 022
 set -e
 
 mkdir -p root/private root/certs
 
-openssl genrsa -out root/private/ca.key 4096
+${_OPENSSL_BIN:-openssl} genrsa -out root/private/ca.key 4096
 
-#openssl genrsa -out root/private/ca.key 2048
+#${_OPENSSL_BIN:-openssl} genrsa -out root/private/ca.key 2048
 
-#openssl genrsa -aes256 -out root/private/ca.key 4096
+#${_OPENSSL_BIN:-openssl} genrsa -aes256 -out root/private/ca.key 4096
 
-#openssl ecparam -genkey -noout -name P-384 -out root/private/ca.key
+#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out root/private/ca.key
 
 rm -f /tmp/openssl_rootCA.cnf
 echo
@@ -41,7 +43,7 @@ sleep 1
 _digest_algo='sha384'
 #_digest_algo='sha256'
 
-openssl req -new -${_digest_algo} -config /tmp/openssl_rootCA.cnf \
+${_OPENSSL_BIN:-openssl} req -new -${_digest_algo} -config /tmp/openssl_rootCA.cnf \
 -key root/private/ca.key -out root/certs/ca.csr \
 -subj "/C=US/OU=Root CA/CN=Root CA"
 
@@ -49,7 +51,7 @@ echo
 sleep 1
 
 # 30 years, 10950 = 30*365
-openssl x509 -req -${_digest_algo} -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
+${_OPENSSL_BIN:-openssl} x509 -req -${_digest_algo} -days 10950 -extfile /tmp/openssl_rootCA.cnf -extensions v3_ca \
 -signkey root/private/ca.key -in root/certs/ca.csr -out root/certs/ca.crt
 
 echo
@@ -62,7 +64,7 @@ printf '\033[01;32m%s\033[m\n' '  Root CA created successfully'
 echo
 exit
 
-#openssl asn1parse -i -in root/private/ca.key
-#openssl req -text -noout -in root/certs/ca.csr
-#openssl x509 -text -noout -in root/certs/ca.crt
+#${_OPENSSL_BIN:-openssl} asn1parse -i -in root/private/ca.key
+#${_OPENSSL_BIN:-openssl} req -text -noout -in root/certs/ca.csr
+#${_OPENSSL_BIN:-openssl} x509 -text -noout -in root/certs/ca.crt
 

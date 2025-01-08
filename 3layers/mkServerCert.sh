@@ -2,6 +2,8 @@
 export PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 TZ='UTC'; export TZ
 
+[ -f openssl ] && _OPENSSL_BIN='./openssl'
+
 umask 022
 set -e
 
@@ -10,11 +12,11 @@ mkdir serverCerts/private serverCerts/certs
 touch serverCerts/ca/index.txt
 echo 0001 > serverCerts/ca/serial
 
-openssl genrsa -out serverCerts/private/server.key 2048
+${_OPENSSL_BIN:-openssl} genrsa -out serverCerts/private/server.key 2048
 
-#openssl genrsa -out serverCerts/private/server.key 4096
+#${_OPENSSL_BIN:-openssl} genrsa -out serverCerts/private/server.key 4096
 
-#openssl ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
+#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
 
 rm -f /tmp/openssl_server.cnf
 sleep 1
@@ -78,7 +80,7 @@ sleep 1
 #_digest_algo='sha384'
 _digest_algo='sha256'
 
-openssl req -new -${_digest_algo} -config /tmp/openssl_server.cnf \
+${_OPENSSL_BIN:-openssl} req -new -${_digest_algo} -config /tmp/openssl_server.cnf \
 -key serverCerts/private/server.key -out serverCerts/certs/server.csr \
 -subj "/CN=www.test.internal"
 
@@ -86,7 +88,7 @@ echo
 sleep 1
 
 # 2 years, 730 = 2*365
-openssl ca -md ${_digest_algo} -days 730 -notext -config /tmp/openssl_server.cnf \
+${_OPENSSL_BIN:-openssl} ca -md ${_digest_algo} -days 730 -notext -config /tmp/openssl_server.cnf \
 -extensions server_cert -policy policy_anything \
 -in serverCerts/certs/server.csr -out serverCerts/certs/server.crt \
 -cert intermediate/certs/intermediateCA.crt -keyfile intermediate/private/intermediateCA.key
@@ -104,6 +106,6 @@ printf '\033[01;32m%s\033[m\n' '  Server Cert created successfully'
 echo
 exit
 
-#openssl verify -verbose -CAfile <(cat root/certs/rootCA.crt intermediate/certs/intermediateCA.crt) serverCerts/certs/fullchain.crt
-#openssl verify -verbose -CAfile <(cat root/certs/rootCA.crt intermediate/certs/intermediateCA.crt) serverCerts/certs/server.crt
+#${_OPENSSL_BIN:-openssl} verify -verbose -CAfile <(cat root/certs/rootCA.crt intermediate/certs/intermediateCA.crt) serverCerts/certs/fullchain.crt
+#${_OPENSSL_BIN:-openssl} verify -verbose -CAfile <(cat root/certs/rootCA.crt intermediate/certs/intermediateCA.crt) serverCerts/certs/server.crt
 
