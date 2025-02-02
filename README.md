@@ -22,7 +22,7 @@ openssl verify -verbose -CAfile root/certs/rootCA.crt -untrusted intermediate/ce
 Check a key:
 Check the SSL key and verify the consistency
 
-openssl rsa -in server.key -check
+openssl rsa -check -in server.key
 
 Check a CSR:
 Verify the CSR and print CSR data filled in when generating the CSR
