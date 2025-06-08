@@ -123,6 +123,8 @@ openssl pkcs12 -in complete.pfx -nokeys
 openssl pkcs12 -in complete.pfx -nokeys -clcerts
 
 keytool -importkeystore -srckeystore complete.pfx -srcstoretype PKCS12 -destkeystore keystore.jks -deststoretype JKS
+
+新格式
 keytool -importkeystore -srckeystore complete.pfx -srcstoretype PKCS12 -destkeystore keystore.jks -deststoretype PKCS12
 
 ```
