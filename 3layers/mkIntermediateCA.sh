@@ -12,11 +12,14 @@ mkdir -p intermediate/ca/newcerts
 touch intermediate/ca/index.txt
 echo 0001 > intermediate/ca/serial
 
+# RSA
 #${_OPENSSL_BIN:-openssl} genrsa -out intermediate/private/intermediateCA.key 4096
 #${_OPENSSL_BIN:-openssl} genrsa -out intermediate/private/intermediateCA.key 2048
+# EC
+#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out intermediate/private/intermediateCA.key
+
 
 ${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-256 -out intermediate/private/intermediateCA.key
-#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out intermediate/private/intermediateCA.key
 
 rm -f /tmp/openssl_intermediateCA.cnf
 sleep 1
