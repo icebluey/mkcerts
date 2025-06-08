@@ -12,11 +12,14 @@ mkdir serverCerts/private serverCerts/certs
 touch serverCerts/ca/index.txt
 echo 0001 > serverCerts/ca/serial
 
+# RSA
 #${_OPENSSL_BIN:-openssl} genrsa -out serverCerts/private/server.key 2048
 #${_OPENSSL_BIN:-openssl} genrsa -out serverCerts/private/server.key 4096
+# EC
+#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
+
 
 ${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-256 -out serverCerts/private/server.key
-#${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out serverCerts/private/server.key
 
 rm -f /tmp/openssl_server.cnf
 sleep 1
