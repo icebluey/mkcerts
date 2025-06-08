@@ -9,10 +9,13 @@ set -e
 
 mkdir -p root/private root/certs
 
+# RSA
 #${_OPENSSL_BIN:-openssl} genrsa -out root/private/rootCA.key 4096
 #${_OPENSSL_BIN:-openssl} genrsa -out root/private/rootCA.key 2048
-
+# EC
 #${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-256 -out root/private/rootCA.key
+
+
 ${_OPENSSL_BIN:-openssl} ecparam -genkey -noout -name P-384 -out root/private/rootCA.key
 
 # Encrypted Root Key
