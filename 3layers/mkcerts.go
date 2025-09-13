@@ -46,6 +46,7 @@ type Config struct {
 	DigestIntermediate string
 	DigestServer      string
 	Domains           []string
+	IPAddresses       []string
 	ServerCN          string
 	RootSubj          string
 	IntermediateSubj  string
@@ -117,12 +118,14 @@ func parseArgs() *Config {
 
 	var help bool
 	var domains stringSlice
+	var ipAddresses stringSlice
 
 	flag.BoolVar(&help, "h", false, "Show help and exit")
 	flag.BoolVar(&help, "help", false, "Show help and exit")
 	flag.StringVar(&config.KeyAlgo, "algo", config.KeyAlgo, "Choose key algorithm: ec | rsa")
-	flag.Var(&domains, "d", "Add one SAN entry; repeatable. Accepts DNS names (incl. wildcards) or IPv4")
-	flag.Var(&domains, "domain", "Add one SAN entry; repeatable. Accepts DNS names (incl. wildcards) or IPv4")
+	flag.Var(&domains, "d", "Add one DNS SAN entry; repeatable. Accepts DNS names (incl. wildcards)")
+	flag.Var(&domains, "domain", "Add one DNS SAN entry; repeatable. Accepts DNS names (incl. wildcards)")
+	flag.Var(&ipAddresses, "ip", "Add one IP SAN entry; repeatable. Accepts IPv4 and IPv6 addresses")
 	flag.StringVar(&config.ServerCN, "scn", "", "Set Server Certificate CN (subject CN)")
 	flag.StringVar(&config.RootSubj, "sr", "", "Set Root CA subject components")
 	flag.StringVar(&config.IntermediateSubj, "si", "", "Set Intermediate CA subject components")
@@ -141,6 +144,7 @@ func parseArgs() *Config {
 	}
 
 	config.Domains = []string(domains)
+	config.IPAddresses = []string(ipAddresses)
 	
 	// Set work directory to current working directory
 	cwd, err := os.Getwd()
@@ -188,8 +192,10 @@ USAGE:
 OPTIONS:
   -h, -help               Show this help and exit
   -algo VALUE             Choose key algorithm: ec | rsa (default: ec)
-  -d, -domain VALUE       Add one SAN entry; repeatable. Accepts DNS names (incl. wildcards) or IPv4.
-                          e.g. -d example.com -d '*.example.com' -d localhost -d 127.0.0.1
+  -d, -domain VALUE       Add one DNS SAN entry; repeatable. Accepts DNS names (incl. wildcards).
+                          e.g. -d example.com -d '*.example.com' -d localhost
+  -ip VALUE               Add one IP SAN entry; repeatable. Accepts IPv4 and IPv6 addresses.
+                          e.g. -ip 127.0.0.1 -ip ::1
   -scn VALUE              Set Server Certificate CN (subject CN). If omitted, defaults to the "root domain"
                           derived from the SAN list (e.g., example.com from -d example.com / -d *.example.com).
   -sr VALUE               Set Root CA subject components (default: C=US, no O, CN=Root CA)
@@ -217,10 +223,10 @@ EXAMPLES:
   ./%s -algo rsa
 
   # Provide SANs and CN via CLI
-  ./%s -algo ec -d example.com -d '*.example.com' -d localhost -d 127.0.0.1 -scn www.example.com
+  ./%s -algo ec -d example.com -d '*.example.com' -d localhost -ip 127.0.0.1 -ip ::1 -scn www.example.com
 
   # Let CN default to the root domain from SANs
-  ./%s -d example.com -d '*.example.com' -d localhost -d 127.0.0.1
+  ./%s -d example.com -d '*.example.com' -ip 127.0.0.1
 
   # Custom certificate subjects (CN for server is always from -scn)
   ./%s -sr "O=My Company" -si "O=My Company" -ss "O=My Company" -scn "api.example.com"
@@ -325,11 +331,6 @@ func algoFor(keyType string, config *Config) string {
 			}
 		}
 	}
-}
-
-func isIPv4(s string) bool {
-	ip := net.ParseIP(s)
-	return ip != nil && ip.To4() != nil
 }
 
 func generateRootCA(config *Config) (*CertificateData, error) {
@@ -484,18 +485,22 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 	info("Using algorithm for Server: %s", algoFor("server", config))
 	info("Generating Server Certificate with %s digest...", config.DigestServer)
 
-	// Build SANs from domains (or use sensible defaults)
+	// Build SANs from domains and IP addresses (or use sensible defaults)
 	domains := config.Domains
-	if len(domains) == 0 {
-		domains = []string{"example.com", "*.example.com", "localhost", "127.0.0.1"}
+	ipAddresses := config.IPAddresses
+	
+	// If no domains or IPs specified, use defaults
+	if len(domains) == 0 && len(ipAddresses) == 0 {
+		domains = []string{"example.com", "*.example.com", "localhost"}
+		ipAddresses = []string{"127.0.0.1"}
 	}
 
 	// Derive CN if not provided
 	serverCN := config.ServerCN
 	if serverCN == "" {
-		// Find first non-IP, non-localhost, non-wildcard domain
+		// First try to find a non-wildcard domain
 		for _, d := range domains {
-			if !isIPv4(d) && d != "localhost" && !strings.HasPrefix(d, "*.") {
+			if d != "localhost" && !strings.HasPrefix(d, "*.") {
 				serverCN = d
 				break
 			}
@@ -509,9 +514,13 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 				}
 			}
 		}
-		// Last resort
+		// Last resort: use first domain or first IP
 		if serverCN == "" {
-			serverCN = domains[0]
+			if len(domains) > 0 {
+				serverCN = domains[0]
+			} else if len(ipAddresses) > 0 {
+				serverCN = ipAddresses[0]
+			}
 		}
 	}
 
@@ -521,14 +530,19 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 		return nil, fmt.Errorf("failed to generate server key: %v", err)
 	}
 
-	// Build SAN list
+	// Build SAN lists
 	var dnsNames []string
-	var ipAddresses []net.IP
+	var ipAddrs []net.IP
+	
+	// Add DNS names
 	for _, d := range domains {
-		if isIPv4(d) {
-			ipAddresses = append(ipAddresses, net.ParseIP(d))
-		} else {
-			dnsNames = append(dnsNames, d)
+		dnsNames = append(dnsNames, d)
+	}
+	
+	// Add IP addresses
+	for _, ipStr := range ipAddresses {
+		if ip := net.ParseIP(ipStr); ip != nil {
+			ipAddrs = append(ipAddrs, ip)
 		}
 	}
 
@@ -549,7 +563,7 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 		SubjectKeyId:          getSubjectKeyID(privateKey),
 		AuthorityKeyId:        intermediateCA.Certificate.SubjectKeyId,
 		DNSNames:              dnsNames,
-		IPAddresses:           ipAddresses,
+		IPAddresses:           ipAddrs,
 	}
 
 	// Set signature algorithm based on digest

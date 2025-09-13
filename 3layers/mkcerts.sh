@@ -30,7 +30,8 @@ readonly DIGEST_INTERMEDIATE="${DIGEST_INTERMEDIATE:-sha384}"
 readonly DIGEST_SERVER="${DIGEST_SERVER:-sha256}"
 
 # --- CLI opts ---
-declare -a DOMAINS=()   # values for SAN: -d/--domain (repeatable) e.g. example.com, *.example.com, 127.0.0.1
+declare -a DOMAINS=()   # values for SAN: -d/--domain (repeatable) e.g. example.com, *.example.com
+declare -a IP_ADDRESSES=()   # values for SAN: -ip (repeatable) e.g. 127.0.0.1, ::1
 SERVER_SCN=""           # -scn value (server CN). If empty, derive from DOMAINS.
 ROOT_SUBJ=""            # -sr value (root CA subject)
 INTERMEDIATE_SUBJ=""    # -si value (intermediate CA subject)
@@ -67,8 +68,10 @@ usage() {
 	OPTIONS:
 	  -h, --help              Show this help and exit
 	  -algo VALUE             Choose key algorithm: ec | rsa (default: ec)
-	  -d, --domain VALUE      Add one SAN entry; repeatable. Accepts DNS names (incl. wildcards) or IPv4.
-	                          e.g. -d example.com -d '*.example.com' -d localhost -d 127.0.0.1
+	  -d, --domain VALUE      Add one DNS SAN entry; repeatable. Accepts DNS names (incl. wildcards).
+	                          e.g. -d example.com -d '*.example.com' -d localhost
+	  -ip VALUE               Add one IP SAN entry; repeatable. Accepts IPv4 and IPv6 addresses.
+	                          e.g. -ip 127.0.0.1 -ip ::1
 	  -scn VALUE              Set Server Certificate CN (subject CN). If omitted, defaults to the "root domain"
 	                          derived from the SAN list (e.g., example.com from -d example.com / -d *.example.com).
 	  -sr VALUE               Set Root CA subject components (default: C=US, no O, CN=Root CA)
@@ -96,10 +99,10 @@ usage() {
 	  ./${SCRIPT_NAME} -algo rsa
 
 	  # Provide SANs and CN via CLI
-	  ./${SCRIPT_NAME} -algo ec -d example.com -d '*.example.com' -d localhost -d 127.0.0.1 -scn www.example.com
+	  ./${SCRIPT_NAME} -algo ec -d example.com -d '*.example.com' -d localhost -ip 127.0.0.1 -ip ::1 -scn www.example.com
 
 	  # Let CN default to the root domain from SANs
-	  ./${SCRIPT_NAME} -d example.com -d '*.example.com' -d localhost -d 127.0.0.1
+	  ./${SCRIPT_NAME} -d example.com -d '*.example.com' -ip 127.0.0.1
 
 	  # Custom certificate subjects (CN for server is always from -scn)
 	  ./${SCRIPT_NAME} -sr "O=My Company" -si "O=My Company" -ss "O=My Company" -scn "api.example.com"
@@ -230,10 +233,6 @@ build_subject() {
     echo "${result}"
 }
 
-_is_ipv4() {
-    [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]
-}
-
 # Generate Root CA
 generate_root_ca() {
     info "Using algorithm for Root CA: $(algo_for root)"
@@ -329,20 +328,26 @@ generate_server_cert() {
     [ -f "${int_key}" ] || die "Intermediate CA key not found"
     [ -f "${int_cert}" ] || die "Intermediate CA certificate not found"
 
-    # Build SANs from -d/--domain flags (or use sensible defaults)
+    # Build SANs from -d/--domain and -ip flags (or use sensible defaults)
     local domains=("${DOMAINS[@]}")
-    if [ ${#domains[@]} -eq 0 ]; then
-        domains=( "example.com" "*.example.com" "localhost" "127.0.0.1" )
+    local ip_addresses=("${IP_ADDRESSES[@]}")
+    
+    # If no domains or IPs specified, use defaults
+    if [ ${#domains[@]} -eq 0 ] && [ ${#ip_addresses[@]} -eq 0 ]; then
+        domains=( "example.com" "*.example.com" "localhost" )
+        ip_addresses=( "127.0.0.1" )
     fi
 
     # Derive CN if not provided
     local server_cn="${SERVER_SCN}"
     if [ -z "${server_cn}" ]; then
+        # First try to find a non-wildcard domain
         for d in "${domains[@]}"; do
-            if ! _is_ipv4 "$d" && [[ "$d" != localhost ]] && [[ "$d" != \*.* ]]; then
+            if [[ "$d" != localhost ]] && [[ "$d" != \*.* ]]; then
                 server_cn="$d"; break
             fi
         done
+        # If not found, try wildcards
         if [ -z "${server_cn}" ]; then
             for d in "${domains[@]}"; do
                 if [[ "$d" == \*.* ]]; then
@@ -350,20 +355,27 @@ generate_server_cert() {
                 fi
             done
         fi
+        # Last resort: use first domain or first IP
         if [ -z "${server_cn}" ]; then
-            server_cn="${domains[0]}"
+            if [ ${#domains[@]} -gt 0 ]; then
+                server_cn="${domains[0]}"
+            elif [ ${#ip_addresses[@]} -gt 0 ]; then
+                server_cn="${ip_addresses[0]}"
+            fi
         fi
     fi
 
     # Compose subjectAltName string (comma-separated, no spaces)
     local san_entries=()
+    # Add DNS entries
     for d in "${domains[@]}"; do
-        if _is_ipv4 "$d"; then
-            san_entries+=( "IP:${d}" )
-        else
-            san_entries+=( "DNS:${d}" )
-        fi
+        san_entries+=( "DNS:${d}" )
     done
+    # Add IP entries
+    for ip in "${ip_addresses[@]}"; do
+        san_entries+=( "IP:${ip}" )
+    done
+    
     local server_san
     server_san="$(printf '%s,' "${san_entries[@]}")"
     server_san="${server_san%,}"
@@ -509,6 +521,11 @@ parse_args() {
                 shift
                 [ $# -gt 0 ] || die "Option -d|--domain requires a value"
                 DOMAINS+=("$1")
+                ;;
+            -ip)
+                shift
+                [ $# -gt 0 ] || die "Option -ip requires a value"
+                IP_ADDRESSES+=("$1")
                 ;;
             -scn)
                 shift
