@@ -142,12 +142,12 @@ func parseArgs() *Config {
 
 	config.Domains = []string(domains)
 	
-	// Set work directory
-	scriptDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	// Set work directory to current working directory
+	cwd, err := os.Getwd()
 	if err != nil {
-		die("Failed to get script directory: %v", err)
+		die("Failed to get current working directory: %v", err)
 	}
-	config.WorkDir = filepath.Join(scriptDir, "pki")
+	config.WorkDir = filepath.Join(cwd, "pki")
 
 	return config
 }

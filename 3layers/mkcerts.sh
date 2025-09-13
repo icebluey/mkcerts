@@ -11,7 +11,7 @@ IFS=$'\n\t'        # Proper IFS handling
 # --- Constants ---
 readonly SCRIPT_NAME="${0##*/}"
 readonly SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-readonly WORK_DIR="${SCRIPT_DIR}/pki"
+readonly WORK_DIR="$(pwd)/pki"
 
 # Certificate validity periods (in days)
 readonly DAYS_ROOT=10950        # 30 years for root CA
