@@ -15,7 +15,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -188,8 +187,19 @@ func getEnvIntDefault(key string, defaultValue int) int {
 }
 
 func showUsage(config *Config) {
-	pathSeparator := string(filepath.Separator)
-	
+	// Safer invocation for copy or paste.
+	// On Windows PowerShell you typically need .\program.exe to run from the current directory.
+	self := filepath.Join(".", config.ScriptName)
+
+	// Relative paths shown in help output.
+	intermediateChainRel := filepath.Join("intermediate", "ca-chain.crt")
+	serverFullchainRel := filepath.Join("server", "fullchain.crt")
+
+	windowsTip := ""
+	if runtime.GOOS == "windows" {
+		windowsTip = fmt.Sprintf("Windows tip:\n  PowerShell: %s ... (note the .\\ prefix)\n  cmd.exe:     %s ... (often works without .\\)\n\n", self, config.ScriptName)
+	}
+
 	fmt.Printf(`%s - Generate a simple PKI: Root CA -> Intermediate CA -> Server cert
 
 USAGE:
@@ -204,15 +214,15 @@ OPTIONS:
                           e.g. -ip 127.0.0.1 -ip ::1
   -scn VALUE              Set Server Certificate CN (subject CN). If omitted, defaults to the "root domain"
                           derived from the SAN list (e.g., example.com from -d example.com / -d *.example.com).
-  -sr VALUE               Set Root CA subject components (default: C=US, no O, CN=Root CA)
-  -si VALUE               Set Intermediate CA subject components (default: C=US, no O, CN=SHA2 Extended Validation Server CA)
-  -ss VALUE               Set Server certificate subject components (default: C=US, no O, CN always from -scn/domains)
+  -sr VALUE               Set Root CA subject components in OpenSSL slash format, e.g. /C=US/O=My Org/CN=Root CA (default: /C=US/CN=Root CA)
+  -si VALUE               Set Intermediate CA subject components in OpenSSL slash format, e.g. /C=US/O=My Org/CN=My Intermediate CA (default: /C=US/CN=SHA2 Extended Validation Server CA)
+  -ss VALUE               Set Server certificate subject components in OpenSSL slash format. CN is always from -scn/domains (default: /C=US/CN=<from -scn>)
 
 OUTPUT:
-  Creates keys/certs under: %s%s
+  Creates keys/certs under: %s
     - rootCA.{key,crt}
-    - intermediateCA.{key,crt}  (plus intermediate%sca-chain.crt)
-    - server.{key,crt}          (plus server%sfullchain.crt)
+    - intermediateCA.{key,crt}  (plus %s)
+    - server.{key,crt}          (plus %s)
 
 CUSTOMIZATION:
   # Prefer -algo to choose algorithm. The following env vars remain supported:
@@ -225,7 +235,7 @@ CUSTOMIZATION:
   DIGEST_SERVER=sha256|sha384       (current: %s)
 
 EXAMPLES:
-  # RSA instead of EC
+%s  # RSA instead of EC
   %s -algo rsa
 
   # Provide SANs and CN via CLI
@@ -235,16 +245,19 @@ EXAMPLES:
   %s -d example.com -d '*.example.com' -ip 127.0.0.1
 
   # Custom certificate subjects (CN for server is always from -scn)
-  %s -sr "O=My Company" -si "O=My Company" -ss "O=My Company" -scn "api.example.com"
+  %s -sr "/C=US/O=My Company/CN=My Root CA" -si "/C=US/O=My Company/CN=My Intermediate CA" -ss "/C=US/O=My Company" -scn "api.example.com"
 
 PLATFORM:
   Current OS: %s
 
-`, config.ScriptName, config.ScriptName, config.WorkDir, pathSeparator,
-		pathSeparator, pathSeparator,
+`, config.ScriptName, config.ScriptName,
+		config.WorkDir,
+		intermediateChainRel,
+		serverFullchainRel,
 		config.ECCurve, config.RSABits,
 		config.DigestRoot, config.DigestIntermediate, config.DigestServer,
-		config.ScriptName, config.ScriptName, config.ScriptName, config.ScriptName,
+		windowsTip,
+		self, self, self, self,
 		runtime.GOOS)
 }
 
@@ -704,8 +717,20 @@ func installCertificates(workDir string, rootCA, intermediateCA, serverCert *Cer
 }
 
 func showSummary(config *Config, rootCA, intermediateCA, serverCert *CertificateData) {
-	pathSep := string(filepath.Separator)
-	
+	// Build display paths using filepath.Join for correct separators on each OS.
+	rootKey := filepath.Join(config.WorkDir, "rootCA.key")
+	rootCrt := filepath.Join(config.WorkDir, "rootCA.crt")
+
+	intermediateKey := filepath.Join(config.WorkDir, "intermediateCA.key")
+	intermediateCrt := filepath.Join(config.WorkDir, "intermediateCA.crt")
+	chainCrt := filepath.Join(config.WorkDir, "intermediate", "ca-chain.crt")
+
+	serverKey := filepath.Join(config.WorkDir, "server.key")
+	serverCrt := filepath.Join(config.WorkDir, "server.crt")
+	fullchainCrt := filepath.Join(config.WorkDir, "server", "fullchain.crt")
+
+	self := filepath.Join(".", config.ScriptName)
+
 	fmt.Printf(`
 
 ========================================
@@ -726,39 +751,84 @@ Digest algorithms used:
 
 Generated files:
   Root CA:
-    Private Key: %s%srootCA.key
-    Certificate: %s%srootCA.crt
+    Private Key: %s
+    Certificate: %s
 
   Intermediate CA:
-    Private Key: %s%sintermediateCA.key
-    Certificate: %s%sintermediateCA.crt
-    Chain:       %s%sintermediate%sca-chain.crt
+    Private Key: %s
+    Certificate: %s
+    Chain:       %s
 
   Server:
-    Private Key: %s%sserver.key
-    Certificate: %s%sserver.crt
-    Full Chain:  %s%sserver%sfullchain.crt
+    Private Key: %s
+    Certificate: %s
+    Full Chain:  %s
 
 To view certificate details:
-  openssl x509 -text -noout -in %s%sserver.crt
+  openssl x509 -text -noout -in "%s"
 
 To test with curl:
-  curl --cacert %s%srootCA.crt https://localhost
+  curl --cacert "%s" https://localhost
 
 (For customization examples, run: %s -help)
 
 `, runtime.GOOS, runtime.GOARCH,
 		algoFor("root", config), algoFor("intermediate", config), algoFor("server", config),
 		config.DigestRoot, config.DigestIntermediate, config.DigestServer,
-		config.WorkDir, pathSep, config.WorkDir, pathSep,
-		config.WorkDir, pathSep, config.WorkDir, pathSep, config.WorkDir, pathSep, pathSep,
-		config.WorkDir, pathSep, config.WorkDir, pathSep, config.WorkDir, pathSep, pathSep,
-		config.WorkDir, pathSep, config.WorkDir, pathSep, config.ScriptName)
+		rootKey, rootCrt,
+		intermediateKey, intermediateCrt, chainCrt,
+		serverKey, serverCrt, fullchainCrt,
+		serverCrt,
+		rootCrt,
+		self)
 }
 
 // Helper functions
 
+// parseSubjectSlashKV parses an OpenSSL-style subject string like:
+//   /C=US/O=DigiCert, Inc./CN=example.com
+// Values may be quoted with single or double quotes.
+// Note: the / character is used as a separator in this format. Unescaped / inside values is not supported.
+func parseSubjectSlashKV(s string) map[string]string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return map[string]string{}
+	}
+	if !strings.HasPrefix(s, "/") {
+		die("Subject must use OpenSSL slash format, e.g. /C=US/O=My Org/CN=Name. Got: %s", s)
+	}
+	parts := strings.Split(s, "/")
+	kv := make(map[string]string)
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(p, "=")
+		if !ok {
+			continue
+		}
+		k = strings.ToUpper(strings.TrimSpace(k))
+		v = unquoteAndUnescape(strings.TrimSpace(v))
+		if k != "" && v != "" {
+			kv[k] = v
+		}
+	}
+	return kv
+}
+
+func unquoteAndUnescape(v string) string {
+	v = strings.TrimSpace(v)
+	if len(v) >= 2 {
+		if (v[0] == '"' && v[len(v)-1] == '"') || (v[0] == '\'' && v[len(v)-1] == '\'') {
+			v = v[1 : len(v)-1]
+		}
+	}
+	return v
+}
+
 // Build certificate subject with smart defaults
+// inputSubj, when provided, must be OpenSSL slash format, e.g. /C=US/O=My Org/CN=Root CA
 func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 	// Default values
 	country := "US"
@@ -766,17 +836,16 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 	commonName := defaultCN
 
 	if inputSubj != "" {
-		// Extract existing components using regex
-		if match := regexp.MustCompile(`C=([^/,]+)`).FindStringSubmatch(inputSubj); match != nil {
-			country = match[1]
+		kv := parseSubjectSlashKV(inputSubj)
+		if v, ok := kv["C"]; ok {
+			country = v
 		}
-		if match := regexp.MustCompile(`O=([^/,]+)`).FindStringSubmatch(inputSubj); match != nil {
-			organization = match[1]
+		if v, ok := kv["O"]; ok {
+			organization = v
 		}
-		// Only use CN from input if not forced to use default
 		if !forceCN {
-			if match := regexp.MustCompile(`CN=([^/,]+)`).FindStringSubmatch(inputSubj); match != nil {
-				commonName = match[1]
+			if v, ok := kv["CN"]; ok {
+				commonName = v
 			}
 		}
 	}
@@ -794,20 +863,16 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 // Parse subject string into pkix.Name
 func parseSubjectString(subjectStr string) pkix.Name {
 	subject := pkix.Name{}
+	kv := parseSubjectSlashKV(subjectStr)
 
-	// Extract C
-	if match := regexp.MustCompile(`C=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
-		subject.Country = []string{match[1]}
+	if v, ok := kv["C"]; ok {
+		subject.Country = []string{v}
 	}
-
-	// Extract O
-	if match := regexp.MustCompile(`O=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
-		subject.Organization = []string{match[1]}
+	if v, ok := kv["O"]; ok {
+		subject.Organization = []string{v}
 	}
-
-	// Extract CN
-	if match := regexp.MustCompile(`CN=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
-		subject.CommonName = match[1]
+	if v, ok := kv["CN"]; ok {
+		subject.CommonName = v
 	}
 
 	return subject
