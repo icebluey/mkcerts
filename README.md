@@ -15,9 +15,9 @@ openssl asn1parse -i -in rootCA.key
 ```
 ### 验证
 ```
-openssl verify -verbose -CAfile root/certs/rootCA.crt intermediate/certs/intermediateCA.crt
-openssl verify -verbose -CAfile <(cat intermediate/certs/intermediateCA.crt root/certs/rootCA.crt) serverCerts/certs/server.crt
-openssl verify -verbose -CAfile root/certs/rootCA.crt -untrusted intermediate/certs/intermediateCA.crt serverCerts/certs/server.crt
+openssl verify -verbose -CAfile rootCA.crt intermediateCA.crt
+openssl verify -verbose -CAfile <(cat intermediateCA.crt rootCA.crt) server.crt
+openssl verify -verbose -CAfile rootCA.crt -untrusted intermediateCA.crt server.crt
 
 Check a key:
 Check the SSL key and verify the consistency
