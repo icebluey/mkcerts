@@ -214,8 +214,8 @@ OPTIONS:
                           e.g. -ip 127.0.0.1 -ip ::1
   -scn VALUE              Set Server Certificate CN (subject CN). If omitted, defaults to the "root domain"
                           derived from the SAN list (e.g., example.com from -d example.com / -d *.example.com).
-  -sr VALUE               Set Root CA subject components in OpenSSL slash format, e.g. /C=US/O=My Org/CN=Root CA (default: /C=US/CN=Root CA)
-  -si VALUE               Set Intermediate CA subject components in OpenSSL slash format, e.g. /C=US/O=My Org/CN=My Intermediate CA (default: /C=US/CN=SHA2 Extended Validation Server CA)
+  -sr VALUE               Set Root CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=Root CA (default: /C=US/CN=Root CA)
+  -si VALUE               Set Intermediate CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=My Intermediate CA (default: /C=US/CN=SHA2 Extended Validation Server CA)
   -ss VALUE               Set Server certificate subject components in OpenSSL slash format. CN is always from -scn/domains (default: /C=US/CN=<from -scn>)
 
 OUTPUT:
@@ -245,7 +245,8 @@ EXAMPLES:
   %s -d example.com -d '*.example.com' -ip 127.0.0.1
 
   # Custom certificate subjects (CN for server is always from -scn)
-  %s -sr "/C=US/O=My Company/CN=My Root CA" -si "/C=US/O=My Company/CN=My Intermediate CA" -ss "/C=US/O=My Company" -scn "api.example.com"
+  # /C=Country Name (2 letter code)/ST=State or Province Name (full name)/L=Locality Name (eg, city)/O=Organization Name (eg, company)/OU=Organizational Unit Name (eg, section)/CN=Common Name (eg, your name or your server's hostname)
+  %s -sr "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Root CA" -si "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Intermediate CA" -ss "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps" -scn "api.example.com"
 
 PLATFORM:
   Current OS: %s
@@ -786,7 +787,9 @@ To test with curl:
 // Helper functions
 
 // parseSubjectSlashKV parses an OpenSSL-style subject string like:
-//   /C=US/O=DigiCert, Inc./CN=example.com
+//
+//	/C=US/O=DigiCert, Inc./CN=example.com
+//
 // Values may be quoted with single or double quotes.
 // Note: the / character is used as a separator in this format. Unescaped / inside values is not supported.
 func parseSubjectSlashKV(s string) map[string]string {
@@ -828,11 +831,14 @@ func unquoteAndUnescape(v string) string {
 }
 
 // Build certificate subject with smart defaults
-// inputSubj, when provided, must be OpenSSL slash format, e.g. /C=US/O=My Org/CN=Root CA
+// inputSubj, when provided, must be OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=Root CA
 func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 	// Default values
 	country := "US"
+	state := ""
+	locality := ""
 	organization := ""
+	orgUnit := ""
 	commonName := defaultCN
 
 	if inputSubj != "" {
@@ -840,8 +846,17 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 		if v, ok := kv["C"]; ok {
 			country = v
 		}
+		if v, ok := kv["ST"]; ok {
+			state = v
+		}
+		if v, ok := kv["L"]; ok {
+			locality = v
+		}
 		if v, ok := kv["O"]; ok {
 			organization = v
+		}
+		if v, ok := kv["OU"]; ok {
+			orgUnit = v
 		}
 		if !forceCN {
 			if v, ok := kv["CN"]; ok {
@@ -850,10 +865,20 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 		}
 	}
 
-	// Build result
+	// Build result in OpenSSL conventional order:
+	// C, ST, L, O, OU, CN
 	result := "/C=" + country
+	if state != "" {
+		result += "/ST=" + state
+	}
+	if locality != "" {
+		result += "/L=" + locality
+	}
 	if organization != "" {
 		result += "/O=" + organization
+	}
+	if orgUnit != "" {
+		result += "/OU=" + orgUnit
 	}
 	result += "/CN=" + commonName
 
@@ -868,8 +893,17 @@ func parseSubjectString(subjectStr string) pkix.Name {
 	if v, ok := kv["C"]; ok {
 		subject.Country = []string{v}
 	}
+	if v, ok := kv["ST"]; ok {
+		subject.Province = []string{v}
+	}
+	if v, ok := kv["L"]; ok {
+		subject.Locality = []string{v}
+	}
 	if v, ok := kv["O"]; ok {
 		subject.Organization = []string{v}
+	}
+	if v, ok := kv["OU"]; ok {
+		subject.OrganizationalUnit = []string{v}
 	}
 	if v, ok := kv["CN"]; ok {
 		subject.CommonName = v
