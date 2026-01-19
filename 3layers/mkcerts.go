@@ -245,7 +245,6 @@ EXAMPLES:
   %s -d example.com -d '*.example.com' -ip 127.0.0.1
 
   # Custom certificate subjects (CN for server is always from -scn)
-  # /C=Country Name (2 letter code)/ST=State or Province Name (full name)/L=Locality Name (eg, city)/O=Organization Name (eg, company)/OU=Organizational Unit Name (eg, section)/CN=Common Name (eg, your name or your server's hostname)
   %s -sr "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Root CA" -si "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Intermediate CA" -ss "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps" -scn "api.example.com"
 
 PLATFORM:
@@ -362,6 +361,20 @@ func algoFor(keyType string, config *Config) string {
 	}
 }
 
+func randomSerialNumber128FixedLen() (*big.Int, error) {
+	// Generate a positive 128-bit serial number with a fixed 16-octet length.
+	// We force the first octet into [0x40..0x7f] so that
+	// 1) the DER INTEGER stays positive without a leading 0x00, and
+	// 2) OpenSSL prints exactly 16 octets (no leading-zero truncation).
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	b[0] &= 0x7f
+	b[0] |= 0x40
+	return new(big.Int).SetBytes(b), nil
+}
+
 func generateRootCA(config *Config) (*CertificateData, error) {
 	info("Using algorithm for Root CA: %s", algoFor("root", config))
 	info("Generating Root CA with %s digest...", config.DigestRoot)
@@ -377,8 +390,13 @@ func generateRootCA(config *Config) (*CertificateData, error) {
 	subject := parseSubjectString(subjectStr)
 
 	// Create certificate template
+	serialNumber, err := randomSerialNumber128FixedLen()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate root serial number: %v", err)
+	}
+
 	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
+		SerialNumber:          serialNumber,
 		Subject:               subject,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, DAYS_ROOT),
@@ -446,8 +464,13 @@ func generateIntermediateCA(config *Config, rootCA *CertificateData) (*Certifica
 	subject := parseSubjectString(subjectStr)
 
 	// Create certificate template
+	serialNumber, err := randomSerialNumber128FixedLen()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate intermediate serial number: %v", err)
+	}
+
 	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(2),
+		SerialNumber:          serialNumber,
 		Subject:               subject,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, DAYS_INTERMEDIATE),
@@ -580,8 +603,13 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 	subject := parseSubjectString(subjectStr)
 
 	// Create certificate template
+	serialNumber, err := randomSerialNumber128FixedLen()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate server serial number: %v", err)
+	}
+
 	template := &x509.Certificate{
-		SerialNumber:          big.NewInt(3),
+		SerialNumber:          serialNumber,
 		Subject:               subject,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, DAYS_SERVER),
