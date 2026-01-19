@@ -53,6 +53,7 @@ type Config struct {
 	ServerSubj         string
 	WorkDir            string
 	ScriptName         string
+	Force              bool
 }
 
 type CertificateData struct {
@@ -75,7 +76,7 @@ func main() {
 		die("Requirements check failed: %v", err)
 	}
 
-	if err := setupDirectories(config.WorkDir); err != nil {
+	if err := setupDirectories(config.WorkDir, config.Force); err != nil {
 		die("Failed to setup directories: %v", err)
 	}
 
@@ -133,6 +134,8 @@ func parseArgs() *Config {
 	flag.StringVar(&config.RootSubj, "sr", "", "Set Root CA subject components")
 	flag.StringVar(&config.IntermediateSubj, "si", "", "Set Intermediate CA subject components")
 	flag.StringVar(&config.ServerSubj, "ss", "", "Set Server certificate subject components")
+	flag.BoolVar(&config.Force, "force", false, "Force removal of existing directory without prompting")
+	flag.BoolVar(&config.Force, "y", false, "Force removal of existing directory without prompting (alias for -force)")
 
 	flag.Parse()
 
@@ -214,9 +217,10 @@ OPTIONS:
                           e.g. -ip 127.0.0.1 -ip ::1
   -scn VALUE              Set Server Certificate CN (subject CN). If omitted, defaults to the "root domain"
                           derived from the SAN list (e.g., example.com from -d example.com / -d *.example.com).
-  -sr VALUE               Set Root CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=Root CA (default: /C=US/CN=Root CA)
-  -si VALUE               Set Intermediate CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=My Intermediate CA (default: /C=US/CN=SHA2 Extended Validation Server CA)
-  -ss VALUE               Set Server certificate subject components in OpenSSL slash format. CN is always from -scn/domains (default: /C=US/CN=<from -scn>)
+  -sr VALUE               Set Root CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=Root CA (default: /CN=Root CA)
+  -si VALUE               Set Intermediate CA subject components in OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=My Intermediate CA (default: /CN=SHA2 Extended Validation Server CA)
+  -ss VALUE               Set Server certificate subject components in OpenSSL slash format. CN is always from -scn/domains (default: /CN=<from -scn>)
+  -force, -y              Force removal of existing directory without prompting
 
 OUTPUT:
   Creates keys/certs under: %s
@@ -247,6 +251,10 @@ EXAMPLES:
   # Custom certificate subjects (CN for server is always from -scn)
   %s -sr "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Root CA" -si "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps/CN=My Intermediate CA" -ss "/C=US/ST=CA/L=SF/O=My Company/OU=DevOps" -scn "api.example.com"
 
+  # Force mode (non-interactive)
+  %s -force -d example.com
+  %s -y -d example.com
+
 PLATFORM:
   Current OS: %s
 
@@ -258,6 +266,7 @@ PLATFORM:
 		config.DigestRoot, config.DigestIntermediate, config.DigestServer,
 		windowsTip,
 		self, self, self, self,
+		self, self,
 		runtime.GOOS)
 }
 
@@ -276,19 +285,26 @@ func checkRequirements() error {
 	return nil
 }
 
-func setupDirectories(workDir string) error {
+func setupDirectories(workDir string, force bool) error {
 	if _, err := os.Stat(workDir); err == nil {
-		fmt.Printf("Directory %s exists. Remove and recreate? [y/N]: ", workDir)
-		var response string
-		fmt.Scanln(&response)
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response == "y" || response == "yes" {
-			info("Removing existing directory: %s", workDir)
+		if force {
+			info("Force mode: removing existing directory: %s", workDir)
 			if err := os.RemoveAll(workDir); err != nil {
 				return fmt.Errorf("failed to remove %s: %v", workDir, err)
 			}
 		} else {
-			return fmt.Errorf("aborting. Please backup or remove %s", workDir)
+			fmt.Printf("Directory %s exists. Remove and recreate? [y/N]: ", workDir)
+			var response string
+			fmt.Scanln(&response)
+			response = strings.TrimSpace(strings.ToLower(response))
+			if response == "y" || response == "yes" {
+				info("Removing existing directory: %s", workDir)
+				if err := os.RemoveAll(workDir); err != nil {
+					return fmt.Errorf("failed to remove %s: %v", workDir, err)
+				}
+			} else {
+				return fmt.Errorf("aborting. Please backup or remove %s", workDir)
+			}
 		}
 	}
 
@@ -862,7 +878,7 @@ func unquoteAndUnescape(v string) string {
 // inputSubj, when provided, must be OpenSSL slash format, e.g. /C=US/ST=CA/L=SF/O=My Org/OU=IT/CN=Root CA
 func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 	// Default values
-	country := "US"
+	country := ""
 	state := ""
 	locality := ""
 	organization := ""
@@ -895,7 +911,10 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 
 	// Build result in OpenSSL conventional order:
 	// C, ST, L, O, OU, CN
-	result := "/C=" + country
+	result := ""
+	if country != "" {
+		result += "/C=" + country
+	}
 	if state != "" {
 		result += "/ST=" + state
 	}
