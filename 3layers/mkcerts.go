@@ -624,12 +624,20 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 		return nil, fmt.Errorf("failed to generate server serial number: %v", err)
 	}
 
+	// Set KeyUsage based on algorithm
+	var keyUsage x509.KeyUsage
+	if config.KeyAlgo == "ec" {
+		keyUsage = x509.KeyUsageDigitalSignature
+	} else {
+		keyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+	}
+
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
 		Subject:               subject,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(0, 0, DAYS_SERVER),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
