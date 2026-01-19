@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -39,20 +40,20 @@ const (
 )
 
 type Config struct {
-	KeyAlgo           string
-	ECCurve           string
-	RSABits           int
-	DigestRoot        string
+	KeyAlgo            string
+	ECCurve            string
+	RSABits            int
+	DigestRoot         string
 	DigestIntermediate string
-	DigestServer      string
-	Domains           []string
-	IPAddresses       []string
-	ServerCN          string
-	RootSubj          string
-	IntermediateSubj  string
-	ServerSubj        string
-	WorkDir           string
-	ScriptName        string
+	DigestServer       string
+	Domains            []string
+	IPAddresses        []string
+	ServerCN           string
+	RootSubj           string
+	IntermediateSubj   string
+	ServerSubj         string
+	WorkDir            string
+	ScriptName         string
 }
 
 type CertificateData struct {
@@ -65,9 +66,12 @@ type CertificateData struct {
 func main() {
 	// Force UTC timezone
 	os.Setenv("TZ", "UTC")
-	
+
+	// Display platform information
+	info("Running on: %s/%s", runtime.GOOS, runtime.GOARCH)
+
 	config := parseArgs()
-	
+
 	if err := checkRequirements(); err != nil {
 		die("Requirements check failed: %v", err)
 	}
@@ -107,13 +111,13 @@ func main() {
 
 func parseArgs() *Config {
 	config := &Config{
-		KeyAlgo:           getEnvDefault("KEY_ALGO", DEFAULT_KEY_ALGO),
-		ECCurve:           getEnvDefault("EC_CURVE", DEFAULT_EC_CURVE),
-		RSABits:           getEnvIntDefault("RSA_BITS", DEFAULT_RSA_BITS),
-		DigestRoot:        getEnvDefault("DIGEST_ROOT", DEFAULT_DIGEST_ROOT),
+		KeyAlgo:            getEnvDefault("KEY_ALGO", DEFAULT_KEY_ALGO),
+		ECCurve:            getEnvDefault("EC_CURVE", DEFAULT_EC_CURVE),
+		RSABits:            getEnvIntDefault("RSA_BITS", DEFAULT_RSA_BITS),
+		DigestRoot:         getEnvDefault("DIGEST_ROOT", DEFAULT_DIGEST_ROOT),
 		DigestIntermediate: getEnvDefault("DIGEST_INTERMEDIATE", DEFAULT_DIGEST_INTERMEDIATE),
-		DigestServer:      getEnvDefault("DIGEST_SERVER", DEFAULT_DIGEST_SERVER),
-		ScriptName:        filepath.Base(os.Args[0]),
+		DigestServer:       getEnvDefault("DIGEST_SERVER", DEFAULT_DIGEST_SERVER),
+		ScriptName:         filepath.Base(os.Args[0]),
 	}
 
 	var help bool
@@ -145,7 +149,7 @@ func parseArgs() *Config {
 
 	config.Domains = []string(domains)
 	config.IPAddresses = []string(ipAddresses)
-	
+
 	// Set work directory to current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -184,6 +188,8 @@ func getEnvIntDefault(key string, defaultValue int) int {
 }
 
 func showUsage(config *Config) {
+	pathSeparator := string(filepath.Separator)
+	
 	fmt.Printf(`%s - Generate a simple PKI: Root CA -> Intermediate CA -> Server cert
 
 USAGE:
@@ -203,10 +209,10 @@ OPTIONS:
   -ss VALUE               Set Server certificate subject components (default: C=US, no O, CN always from -scn/domains)
 
 OUTPUT:
-  Creates keys/certs under: %s/
+  Creates keys/certs under: %s%s
     - rootCA.{key,crt}
-    - intermediateCA.{key,crt}  (plus intermediate/ca-chain.crt)
-    - server.{key,crt}          (plus server/fullchain.crt)
+    - intermediateCA.{key,crt}  (plus intermediate%sca-chain.crt)
+    - server.{key,crt}          (plus server%sfullchain.crt)
 
 CUSTOMIZATION:
   # Prefer -algo to choose algorithm. The following env vars remain supported:
@@ -220,20 +226,26 @@ CUSTOMIZATION:
 
 EXAMPLES:
   # RSA instead of EC
-  ./%s -algo rsa
+  %s -algo rsa
 
   # Provide SANs and CN via CLI
-  ./%s -algo ec -d example.com -d '*.example.com' -d localhost -ip 127.0.0.1 -ip ::1 -scn www.example.com
+  %s -algo ec -d example.com -d '*.example.com' -d localhost -ip 127.0.0.1 -ip ::1 -scn www.example.com
 
   # Let CN default to the root domain from SANs
-  ./%s -d example.com -d '*.example.com' -ip 127.0.0.1
+  %s -d example.com -d '*.example.com' -ip 127.0.0.1
 
   # Custom certificate subjects (CN for server is always from -scn)
-  ./%s -sr "O=My Company" -si "O=My Company" -ss "O=My Company" -scn "api.example.com"
+  %s -sr "O=My Company" -si "O=My Company" -ss "O=My Company" -scn "api.example.com"
 
-`, config.ScriptName, config.ScriptName, config.WorkDir, config.ECCurve, config.RSABits,
+PLATFORM:
+  Current OS: %s
+
+`, config.ScriptName, config.ScriptName, config.WorkDir, pathSeparator,
+		pathSeparator, pathSeparator,
+		config.ECCurve, config.RSABits,
 		config.DigestRoot, config.DigestIntermediate, config.DigestServer,
-		config.ScriptName, config.ScriptName, config.ScriptName, config.ScriptName)
+		config.ScriptName, config.ScriptName, config.ScriptName, config.ScriptName,
+		runtime.GOOS)
 }
 
 func die(format string, args ...interface{}) {
@@ -256,7 +268,9 @@ func setupDirectories(workDir string) error {
 		fmt.Printf("Directory %s exists. Remove and recreate? [y/N]: ", workDir)
 		var response string
 		fmt.Scanln(&response)
-		if strings.ToLower(response) == "y" || strings.ToLower(response) == "yes" {
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "y" || response == "yes" {
+			info("Removing existing directory: %s", workDir)
 			if err := os.RemoveAll(workDir); err != nil {
 				return fmt.Errorf("failed to remove %s: %v", workDir, err)
 			}
@@ -273,6 +287,7 @@ func setupDirectories(workDir string) error {
 	}
 
 	for _, dir := range dirs {
+		info("Creating directory: %s", dir)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			return fmt.Errorf("failed to create directory %s: %v", dir, err)
 		}
@@ -488,7 +503,7 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 	// Build SANs from domains and IP addresses (or use sensible defaults)
 	domains := config.Domains
 	ipAddresses := config.IPAddresses
-	
+
 	// If no domains or IPs specified, use defaults
 	if len(domains) == 0 && len(ipAddresses) == 0 {
 		domains = []string{"example.com", "*.example.com", "localhost"}
@@ -533,12 +548,12 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 	// Build SAN lists
 	var dnsNames []string
 	var ipAddrs []net.IP
-	
+
 	// Add DNS names
 	for _, d := range domains {
 		dnsNames = append(dnsNames, d)
 	}
-	
+
 	// Add IP addresses
 	for _, ipStr := range ipAddresses {
 		if ip := net.ParseIP(ipStr); ip != nil {
@@ -602,7 +617,7 @@ func generateServerCert(config *Config, intermediateCA *CertificateData) (*Certi
 
 	// Create full certificate chain (server + intermediate, not root)
 	intermediateCertFile := filepath.Join(config.WorkDir, "intermediate", "intermediateCA.crt")
-	
+
 	intermediatePEM, err := os.ReadFile(intermediateCertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read intermediate cert: %v", err)
@@ -655,7 +670,7 @@ func verifyChain(workDir string, rootCA, intermediateCA, serverCert *Certificate
 }
 
 func installCertificates(workDir string, rootCA, intermediateCA, serverCert *CertificateData) error {
-	info("Installing certificates...")
+	info("Installing certificates to %s...", workDir)
 
 	// Read fullchain.crt from server directory
 	fullchainPEM, err := os.ReadFile(filepath.Join(workDir, "server", "fullchain.crt"))
@@ -684,16 +699,20 @@ func installCertificates(workDir string, rootCA, intermediateCA, serverCert *Cer
 		}
 	}
 
-	info("Certificates installed to %s/", workDir)
+	info("Certificates installed successfully")
 	return nil
 }
 
 func showSummary(config *Config, rootCA, intermediateCA, serverCert *CertificateData) {
+	pathSep := string(filepath.Separator)
+	
 	fmt.Printf(`
 
 ========================================
 Certificate Chain Generation Complete
 ========================================
+
+Platform: %s/%s
 
 Algorithms used:
   Root CA:         %s
@@ -707,33 +726,34 @@ Digest algorithms used:
 
 Generated files:
   Root CA:
-    Private Key: %s/rootCA.key
-    Certificate: %s/rootCA.crt
+    Private Key: %s%srootCA.key
+    Certificate: %s%srootCA.crt
 
   Intermediate CA:
-    Private Key: %s/intermediateCA.key
-    Certificate: %s/intermediateCA.crt
-    Chain:       %s/intermediate/ca-chain.crt
+    Private Key: %s%sintermediateCA.key
+    Certificate: %s%sintermediateCA.crt
+    Chain:       %s%sintermediate%sca-chain.crt
 
   Server:
-    Private Key: %s/server.key
-    Certificate: %s/server.crt
-    Full Chain:  %s/server/fullchain.crt
+    Private Key: %s%sserver.key
+    Certificate: %s%sserver.crt
+    Full Chain:  %s%sserver%sfullchain.crt
 
 To view certificate details:
-  openssl x509 -text -noout -in %s/server.crt
+  openssl x509 -text -noout -in %s%sserver.crt
 
 To test with curl:
-  curl --cacert %s/rootCA.crt https://localhost
+  curl --cacert %s%srootCA.crt https://localhost
 
 (For customization examples, run: %s -help)
 
-`, algoFor("root", config), algoFor("intermediate", config), algoFor("server", config),
+`, runtime.GOOS, runtime.GOARCH,
+		algoFor("root", config), algoFor("intermediate", config), algoFor("server", config),
 		config.DigestRoot, config.DigestIntermediate, config.DigestServer,
-		config.WorkDir, config.WorkDir,
-		config.WorkDir, config.WorkDir, config.WorkDir,
-		config.WorkDir, config.WorkDir, config.WorkDir,
-		config.WorkDir, config.WorkDir, config.ScriptName)
+		config.WorkDir, pathSep, config.WorkDir, pathSep,
+		config.WorkDir, pathSep, config.WorkDir, pathSep, config.WorkDir, pathSep, pathSep,
+		config.WorkDir, pathSep, config.WorkDir, pathSep, config.WorkDir, pathSep, pathSep,
+		config.WorkDir, pathSep, config.WorkDir, pathSep, config.ScriptName)
 }
 
 // Helper functions
@@ -744,7 +764,7 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 	country := "US"
 	organization := ""
 	commonName := defaultCN
-	
+
 	if inputSubj != "" {
 		// Extract existing components using regex
 		if match := regexp.MustCompile(`C=([^/,]+)`).FindStringSubmatch(inputSubj); match != nil {
@@ -760,36 +780,36 @@ func buildSubject(inputSubj, defaultCN string, forceCN bool) string {
 			}
 		}
 	}
-	
+
 	// Build result
 	result := "/C=" + country
 	if organization != "" {
 		result += "/O=" + organization
 	}
 	result += "/CN=" + commonName
-	
+
 	return result
 }
 
 // Parse subject string into pkix.Name
 func parseSubjectString(subjectStr string) pkix.Name {
 	subject := pkix.Name{}
-	
+
 	// Extract C
 	if match := regexp.MustCompile(`C=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
 		subject.Country = []string{match[1]}
 	}
-	
+
 	// Extract O
 	if match := regexp.MustCompile(`O=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
 		subject.Organization = []string{match[1]}
 	}
-	
+
 	// Extract CN
 	if match := regexp.MustCompile(`CN=([^/,]+)`).FindStringSubmatch(subjectStr); match != nil {
 		subject.CommonName = match[1]
 	}
-	
+
 	return subject
 }
 
@@ -806,7 +826,7 @@ func getPublicKey(privateKey interface{}) interface{} {
 
 func getSubjectKeyID(privateKey interface{}) []byte {
 	publicKey := getPublicKey(privateKey)
-	
+
 	switch pub := publicKey.(type) {
 	case *rsa.PublicKey:
 		// For RSA: hash the modulus N using SHA-1 (RFC 5280 method)
@@ -816,7 +836,7 @@ func getSubjectKeyID(privateKey interface{}) []byte {
 		// For ECDSA: hash the uncompressed point (0x04 + X + Y) using SHA-1
 		x := pub.X.Bytes()
 		y := pub.Y.Bytes()
-		
+
 		// Pad to curve size
 		curveSize := (pub.Curve.Params().BitSize + 7) / 8
 		if len(x) < curveSize {
@@ -829,11 +849,11 @@ func getSubjectKeyID(privateKey interface{}) []byte {
 			copy(padded[curveSize-len(y):], y)
 			y = padded
 		}
-		
+
 		// Create uncompressed point: 0x04 + X + Y
 		uncompressed := append([]byte{0x04}, x...)
 		uncompressed = append(uncompressed, y...)
-		
+
 		hash := sha1.Sum(uncompressed)
 		return hash[:]
 	default:
@@ -887,4 +907,3 @@ func writeFileSecure(filename string, data []byte, perm os.FileMode) error {
 	}
 	return nil
 }
-
