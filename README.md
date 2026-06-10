@@ -41,7 +41,10 @@ openssl rsa -noout -modulus -in server.key | openssl md5
 ### 添加和信任自己的自定义证书
 确保证书是 PEM 格式，文件扩展名通常为 .crt 或 .pem。如果证书是其他格式（如 .der），需要先转换：
 ```
-openssl x509 -inform DER -in your-cert.der -out your-cert.crt
+openssl x509 -inform DER -in your-cert.der -outform PEM -out your-cert.crt
+
+openssl x509 -inform PEM -in your-cert.crt -outform DER -out your-cert.der
+
 ```
 
 RHEL/CentOS
